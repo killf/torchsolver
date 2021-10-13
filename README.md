@@ -2,6 +2,12 @@
 
 > A pytorch based deep learning solver framework.
 
+**install**
+
+```shell
+pip install torchsolver
+```
+
 **example**
 
 ```python
