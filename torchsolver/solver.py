@@ -2,8 +2,12 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from tensorboardX import SummaryWriter
+
+from typing import *
+import datetime
 import os
 
+from .utils import *
 from .datasets import DATASETS
 from .models import MODELS
 from .losses import LOSSES
@@ -46,6 +50,9 @@ class Solver:
         if cfg.optimizer_name is not None:
             self.optimizer = OPTIMIZERS[cfg.optimizer_name](**cfg.optimizer_args).to(self.device)
 
+        if cfg.pretrained_file is not None and os.path.exists(cfg.pretrained_file):
+            self.load_pretrained(cfg.pretrained_file)
+
         self.start_epoch = 1
         self.epochs = cfg.epochs
         self.output_dir = cfg.output_dir
@@ -83,19 +90,47 @@ class Solver:
             self.save_checkpoint(epoch, score=score, is_best=is_best)
 
     def train_epoch(self, epoch):
+        self.model.eval()
 
+        t, c = Timer(), Counter()
+        t.start()
+        for step, data in enumerate(self.train_loader):
+            data = [x.to(self.device) if isinstance(x, torch.Tensor) else x for x in data]
+            reader_time = t.elapsed_time()
+
+            loss, metrics = self.train_step(*data)
+
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
+
+            batch_time = t.elapsed_time()
+            for k, v in metrics.items():
+                if isinstance(v, float):
+                    c[k] = v
+
+            c.append(batch_time=batch_time)
+            eta = calculate_eta(len(self.train_loader) - step, c.batch_time)
+
+            msg = "".join(f"{k}={v:.4f}{c[k]:.4f} " for k, v in metrics.items() if isinstance(v, float))
+            self.log(f"[{datetime.datetime.now():%Y-%m-%d %H:%M:%S}] "
+                     f"[epoch={epoch}/{self.epochs}] "
+                     f"step={step + 1}/{len(self.train_loader)} "
+                     f"loss={loss:.4f}/{c.loss:.4f} "
+                     f"{msg}"
+                     f"batch_time={c.batch_time:.4f}+{c.reader_time:.4f} "
+                     f"| ETA {eta}",
+                     end="\r",
+                     to_file=step % 10 == 0)
+
+    def train_step(self, *args) -> Tuple[torch.Tensor, Dict]:
         pass
 
     @torch.no_grad()
-    def val_epoch(self, epoch):
-        if self.val_loader is None or self.model is None:
-            return
+    def val_epoch(self, epoch) -> float:
+        pass
 
-        self.model.eval()
-
-        return 0
-
-    def load_pretrained(self):
+    def load_pretrained(self, pretrained_file):
         pass
 
     def save_checkpoint(self, epoch, score=None, is_best=False):

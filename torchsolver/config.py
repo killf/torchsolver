@@ -4,7 +4,7 @@ import torch
 class Config:
     def __init__(self, **kwargs):
         self.output_dir = "output"
-        self.pretrained = None
+        self.pretrained_file = None
 
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.num_device = torch.cuda.device_count()
@@ -37,6 +37,7 @@ class Config:
         self.lr = 0.001
         self.batch_size = 32
         self.epochs = 20
+        self.pretrained_file = None
 
         for k, v in kwargs.items():
             self.__setattr__(k, v)
