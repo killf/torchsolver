@@ -1,4 +1,9 @@
-OPTIMIZERS = {}
+from torch.optim import *
+
+OPTIMIZERS = {
+    "SGD": SGD,
+    "Adam": Adam
+}
 
 
 def register_optimizer(name: str = None):

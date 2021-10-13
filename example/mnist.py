@@ -2,9 +2,12 @@ import torch
 from torch import nn
 
 from torchsolver.models import register_model
+from torchsolver.solver import Solver
+from torchsolver.metrics import accuracy
+from torchsolver.config import Config
 
 
-@register_model("TTT")
+@register_model()
 class LeNet(nn.Module):
     def __init__(self, classes_num):
         super(LeNet, self).__init__()
@@ -32,3 +35,39 @@ class LeNet(nn.Module):
 
         x = torch.softmax(x, dim=-1)
         return x
+
+
+class MnistSolver(Solver):
+    def forward(self, img, label):
+        pred = self.model(img)
+
+        acc = accuracy(pred, label)
+        if self.is_training:
+            loss = self.loss(pred, label)
+            return loss, {"loss": float(loss), "acc": float(acc)}
+        else:
+            return float(acc), {}
+
+
+if __name__ == '__main__':
+    from torchvision.transforms import *
+
+    cfg = Config()
+
+    cfg.train_data_name = "MNIST"
+    cfg.train_data_args.root = "data"
+    cfg.train_data_args.train = False
+    cfg.train_data_args.transform = ToTensor()
+
+    cfg.val_data_name = "MNIST"
+    cfg.val_data_args.root = "data"
+    cfg.val_data_args.train = False
+    cfg.val_data_args.transform = ToTensor()
+
+    cfg.model_name = "LeNet"
+    cfg.model_args.classes_num = 10
+
+    cfg.loss_name = "CrossEntropyLoss"
+    cfg.optimizer_name = "Adam"
+
+    MnistSolver(cfg).train()

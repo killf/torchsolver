@@ -58,8 +58,54 @@ class Config:
         if "lr" not in self.optimizer_args:
             self.optimizer_args.lr = self.lr
 
+        if "batch_size" not in self.train_loader_args:
+            self.train_loader_args.batch_size = self.batch_size
+
+        if "shuffle" not in self.train_loader_args:
+            self.train_loader_args.shuffle = True
+
+        if "batch_size" not in self.val_loader_args:
+            self.val_loader_args.batch_size = self.batch_size
+
         for k, v in kwargs.items():
             self.__setattr__(k, v)
+
+        return self
+
+
+class GANConfig(Config):
+    def __init__(self, **kwargs):
+        self.g_net_name = None
+        self.g_net_args = Dict()
+
+        self.d_net_name = None
+        self.d_net_args = Dict()
+
+        self.g_optimizer_name = None
+        self.g_optimizer_args = Dict()
+
+        self.d_optimizer_name = None
+        self.d_optimizer_args = Dict()
+
+        super().__init__(**kwargs)
+
+    def build(self, **kwargs):
+        super().build(**kwargs)
+
+        if self.g_optimizer_name is None and self.optimizer_name is not None:
+            self.g_optimizer_name = self.optimizer_name
+
+        if len(self.g_optimizer_args) == 0 and len(self.optimizer_args) != 0:
+            self.g_optimizer_args = self.optimizer_args.copy()
+
+        if self.d_optimizer_name is None and self.optimizer_name is not None:
+            self.d_optimizer_name = self.optimizer_name
+
+        if len(self.d_optimizer_args) == 0 and len(self.optimizer_args) != 0:
+            self.d_optimizer_args = self.optimizer_args.copy()
+
+        self.optimizer_name = None
+        self.model_name = None
 
         return self
 

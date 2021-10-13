@@ -10,9 +10,9 @@ class Counter:
 
     def append(self, **kwargs):
         for key, value in kwargs.items():
-            self[key] = value
+            self.set(key, value)
 
-    def __setitem__(self, key, value):
+    def set(self, key, value):
         if key not in self.data:
             self.data[key] = []
 
@@ -21,13 +21,10 @@ class Counter:
 
         self.data[key].append(value)
 
-    def __getitem__(self, key):
+    def get(self, key):
         if key not in self.data:
             return 0
         return np.mean(self.data[key])
 
     def __getattr__(self, key):
-        return self.__getitem__(key)
-
-    def __setattr__(self, key, value):
-        return self.__setitem__(key, value)
+        return self.get(key)

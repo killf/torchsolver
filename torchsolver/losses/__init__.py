@@ -1,4 +1,9 @@
-LOSSES = {}
+from torch import nn
+
+LOSSES = {
+    "CrossEntropyLoss": nn.CrossEntropyLoss,
+    "BCELoss": nn.BCELoss
+}
 
 
 def register_loss(name: str = None):
