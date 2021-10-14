@@ -6,71 +6,97 @@ import torchsolver as ts
 
 
 class Discriminator(nn.Module):
-    def __init__(self):
+    def __init__(self, in_c=1, c_dim=10):
         super(Discriminator, self).__init__()
-        self.conv1 = nn.Conv2d(1, 32, 5, 1, 2)
-        self.bn1 = nn.BatchNorm2d(32)
-        self.conv2 = nn.Conv2d(32, 64, 5, 1, 2)
-        self.bn2 = nn.BatchNorm2d(64)
-        self.fc1 = nn.Linear(64 * 28 * 28 + 1000, 1024)
-        self.fc2 = nn.Linear(1024, 1)
-        self.fc3 = nn.Linear(10, 1000)
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(in_c, 32, 5, 1, 2),
+            nn.BatchNorm2d(32),
+            nn.LeakyReLU(0.02)
+        )
 
-    def forward(self, x, labels):
-        batch_size = x.size(0)
-        x = x.view(batch_size, 1, 28, 28)
+        self.conv2 = nn.Sequential(
+            nn.Conv2d(32, 64, 5, 1, 2),
+            nn.BatchNorm2d(64),
+            nn.LeakyReLU(0.02)
+        )
+
+        self.fc_c = nn.Sequential(
+            nn.Linear(c_dim, 1000),
+            nn.LeakyReLU(0.02)
+        )
+
+        self.fc1 = nn.Sequential(
+            nn.Linear(64 * 28 * 28 + 1000, 1024),
+            nn.LeakyReLU(0.02)
+        )
+
+        self.fc2 = nn.Sequential(
+            nn.Linear(1024, 1),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x, c):
         x = self.conv1(x)
-        x = self.bn1(x)
-        x = F.relu(x)
         x = self.conv2(x)
-        x = self.bn2(x)
-        x = F.relu(x)
-        x = x.view(batch_size, 64 * 28 * 28)
-        y_ = self.fc3(labels)
-        y_ = F.relu(y_)
-        x = torch.cat([x, y_], 1)
+
+        x = torch.flatten(x, 1)
+        c = self.fc_c(c)
+        x = torch.cat([x, c], 1)
+
         x = self.fc1(x)
-        x = F.relu(x)
         x = self.fc2(x)
-        return F.sigmoid(x)
+        return x
 
 
 class Generator(nn.Module):
-    def __init__(self, z_dim):
-        self.z_dim = z_dim
+    def __init__(self, z_dim=100, c_dim=10):
         super(Generator, self).__init__()
-        self.fc2 = nn.Linear(10, 1000)
-        self.fc = nn.Linear(self.z_dim + 1000, 64 * 28 * 28)
-        self.bn1 = nn.BatchNorm2d(64)
-        self.deconv1 = nn.ConvTranspose2d(64, 32, 5, 1, 2)
-        self.bn2 = nn.BatchNorm2d(32)
-        self.deconv2 = nn.ConvTranspose2d(32, 1, 5, 1, 2)
 
-    def forward(self, x, labels):
-        batch_size = x.size(0)
-        y_ = self.fc2(labels)
-        y_ = F.relu(y_)
-        x = torch.cat([x, y_], 1)
+        self.z_dim = z_dim
+        self.c_dim = c_dim
+
+        self.fc_c = nn.Sequential(
+            nn.Linear(c_dim, 1000),
+            nn.LeakyReLU(0.02)
+        )
+
+        self.fc = nn.Linear(self.z_dim + 1000, 64 * 28 * 28)
+
+        self.deconv1 = nn.Sequential(
+            nn.BatchNorm2d(64),
+            nn.LeakyReLU(0.02),
+            nn.ConvTranspose2d(64, 32, 5, 1, 2)
+        )
+
+        self.deconv2 = nn.Sequential(
+            nn.BatchNorm2d(32),
+            nn.LeakyReLU(0.02),
+            nn.ConvTranspose2d(32, 1, 5, 1, 2)
+        )
+
+    def forward(self, z, c):
+        c = self.fc_c(c)
+        x = torch.cat([z, c], 1)
+
         x = self.fc(x)
-        x = x.view(batch_size, 64, 28, 28)
-        x = self.bn1(x)
-        x = F.relu(x)
+        x = x.view(x.size(0), 64, 28, 28)
+
         x = self.deconv1(x)
-        x = self.bn2(x)
-        x = F.relu(x)
         x = self.deconv2(x)
+
         x = F.sigmoid(x)
         return x
 
 
-class ConditionalDCGAN(ts.Module):
-    def __init__(self, z_dim=100, **kwargs):
+class ConditionalDCGAN(ts.GANModule):
+    def __init__(self, z_dim=100, c_dim=10, in_c=1, **kwargs):
         super(ConditionalDCGAN, self).__init__(**kwargs)
 
         self.z_dim = z_dim
+        self.c_dim = c_dim
 
-        self.g_net = Generator(z_dim)
-        self.d_net = Discriminator()
+        self.g_net = Generator(z_dim=z_dim, c_dim=c_dim)
+        self.d_net = Discriminator(in_c=in_c, c_dim=c_dim)
 
         self.loss = nn.BCELoss()
 
@@ -81,6 +107,7 @@ class ConditionalDCGAN(ts.Module):
         N = img.size(0)
         real_label = torch.ones(N, 1, device=self.device)
         fake_label = torch.zeros(N, 1, device=self.device)
+        label = F.one_hot(label, num_classes=self.c_dim).float()
 
         # compute loss of real_img
         real_out = self.d_net(img, label)
@@ -101,6 +128,7 @@ class ConditionalDCGAN(ts.Module):
     def forward_g(self, img, label):
         N = img.size(0)
         real_label = torch.ones(N, 1, device=self.device)
+        label = F.one_hot(label, num_classes=self.c_dim).float()
 
         # compute loss of fake_img
         z = torch.randn(N, self.z_dim, device=self.device)
@@ -111,38 +139,11 @@ class ConditionalDCGAN(ts.Module):
 
         return g_loss, {"g_loss": float(g_loss), "g_score": float(g_score.mean())}
 
-    def train_step(self, img, label):
-        label = F.one_hot(label, num_classes=10).float()
-
-        d_metrics = self.train_step_d(img, label)
-        g_metrics = self.train_step_g(img, label)
-
-        d_metrics.update(g_metrics)
-        return d_metrics
-
-    def train_step_d(self, *inputs):
-        d_loss, d_metrics = self.forward_d(*inputs)
-
-        self.d_optimizer.zero_grad()
-        d_loss.backward()
-        self.d_optimizer.step()
-
-        return d_metrics
-
-    def train_step_g(self, *inputs):
-        g_loss, g_metrics = self.forward_g(*inputs)
-
-        self.g_optimizer.zero_grad()
-        g_loss.backward()
-        self.g_optimizer.step()
-
-        return g_metrics
-
     @torch.no_grad()
     def val_epoch(self, *args):
         z = torch.randn(100, self.z_dim, device=self.device)
         label = torch.tensor([0, 1, 2, 3, 4, 5, 6, 7, 8, 9] * 10, dtype=torch.long, device=self.device)
-        label = F.one_hot(label, num_classes=10).float()
+        label = F.one_hot(label, num_classes=self.c_dim).float()
 
         img = self.g_net(z, label)
 

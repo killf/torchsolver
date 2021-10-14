@@ -11,8 +11,12 @@ from .utils import *
 
 
 class Module(nn.Module):
-    def __init__(self, epochs=20, batch_size=32, device=None, output_dir="output", pretrained_file=None, num_device=None):
+    def __init__(self, task_name=None, epochs=20, batch_size=32, device=None, output_dir="output", pretrained_file=None, num_device=None):
         super(Module, self).__init__()
+
+        self.task_name = task_name
+        if task_name is not None:
+            output_dir = os.path.join(output_dir, str(task_name))
 
         if device is None:
             device = "cuda" if torch.cuda.is_available() else "cpu"

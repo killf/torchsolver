@@ -7,19 +7,17 @@ class Discriminator(nn.Module):
     def __init__(self):
         super(Discriminator, self).__init__()
 
-        self.conv1 = nn.Sequential(
+        self.layers = nn.Sequential(
             nn.Conv2d(1, 32, 5, padding=2),
             nn.LeakyReLU(0.2),
-            nn.AvgPool2d(2, stride=2)
-        )
+            nn.AvgPool2d(2, stride=2),
 
-        self.conv2 = nn.Sequential(
             nn.Conv2d(32, 64, 5, padding=2),
             nn.LeakyReLU(0.2),
-            nn.AvgPool2d(2, stride=2)
-        )
+            nn.AvgPool2d(2, stride=2),
 
-        self.fc = nn.Sequential(
+            nn.Flatten(1),
+
             nn.Linear(64 * 7 * 7, 1024),
             nn.LeakyReLU(0.2),
             nn.Linear(1024, 1),
@@ -27,11 +25,7 @@ class Discriminator(nn.Module):
         )
 
     def forward(self, x):
-        x = self.conv1(x)
-        x = self.conv2(x)
-        x = torch.flatten(x, 1)
-        x = self.fc(x)
-        return x
+        return self.layers(x)
 
 
 class Generator(nn.Module):
@@ -44,17 +38,17 @@ class Generator(nn.Module):
         self.fc = nn.Linear(input_size, num_feature)
         self.br = nn.Sequential(
             nn.BatchNorm2d(1),
-            nn.ReLU()
+            nn.LeakyReLU(0.02)
         )
         self.downsample1 = nn.Sequential(
             nn.Conv2d(1, 50, 3, stride=1, padding=1),
             nn.BatchNorm2d(50),
-            nn.ReLU()
+            nn.LeakyReLU(0.02)
         )
         self.downsample2 = nn.Sequential(
             nn.Conv2d(50, 25, 3, stride=1, padding=1),
             nn.BatchNorm2d(25),
-            nn.ReLU()
+            nn.LeakyReLU(0.02)
         )
         self.downsample3 = nn.Sequential(
             nn.Conv2d(25, 1, 2, stride=2),
@@ -71,9 +65,9 @@ class Generator(nn.Module):
         return x
 
 
-class MnistGANModule(ts.Module):
+class DCGANModule(ts.GANModule):
     def __init__(self, z_dimension=100, **kwargs):
-        super(MnistGANModule, self).__init__(**kwargs)
+        super(DCGANModule, self).__init__(**kwargs)
 
         self.z_dimension = z_dimension
 
@@ -119,33 +113,8 @@ class MnistGANModule(ts.Module):
 
         return g_loss, {"g_loss": float(g_loss), "g_score": float(g_score.mean())}
 
-    def train_step(self, *inputs):
-        d_metrics = self.train_step_d(*inputs)
-        g_metrics = self.train_step_g(*inputs)
-
-        d_metrics.update(g_metrics)
-        return d_metrics
-
-    def train_step_d(self, *inputs):
-        d_loss, d_metrics = self.forward_d(*inputs)
-
-        self.d_optimizer.zero_grad()
-        d_loss.backward()
-        self.d_optimizer.step()
-
-        return d_metrics
-
-    def train_step_g(self, *inputs):
-        g_loss, g_metrics = self.forward_g(*inputs)
-
-        self.g_optimizer.zero_grad()
-        g_loss.backward()
-        self.g_optimizer.step()
-
-        return g_metrics
-
     @torch.no_grad()
-    def val_epoch(self, *inputs):
+    def val_epoch(self, *args):
         z = torch.randn(32, self.z_dimension, device=self.device)
         img = self.g_net(z)
 
@@ -162,4 +131,4 @@ if __name__ == '__main__':
 
     train_data = MNIST("data", train=True, transform=ToTensor())
 
-    MnistGANModule(batch_size=128).fit(train_data=train_data)
+    DCGANModule(batch_size=128).fit(train_data=train_data)
