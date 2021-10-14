@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="torchsolver",
-    version="1.3",
+    version="1.4",
     author="killf",
     author_email="killf@foxmail.com",
     description="A pytorch based deep learning solver framework.",

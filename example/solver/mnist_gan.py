@@ -88,7 +88,7 @@ class MnistGANSolver(GANSolver):
         real_score = real_out
 
         # compute loss of fake_img
-        z = torch.randn(N, self.cfg.z_dimension, device=self.device)
+        z = torch.randn(N, self.cfg.z_dim, device=self.device)
         fake_img = self.g_net(z)
         fake_out = self.d_net(fake_img)
         loss_fake = self.loss(fake_out, fake_label)
@@ -103,7 +103,7 @@ class MnistGANSolver(GANSolver):
         real_label = torch.ones(N, 1, device=self.device)
 
         # compute loss of fake_img
-        z = torch.randn(N, self.cfg.z_dimension, device=self.device)
+        z = torch.randn(N, self.cfg.z_dim, device=self.device)
         fake_img = self.g_net(z)
         fake_out = self.d_net(fake_img)
         g_loss = self.loss(fake_out, real_label)
@@ -113,7 +113,7 @@ class MnistGANSolver(GANSolver):
 
     @torch.no_grad()
     def val_epoch(self):
-        z = torch.randn(32, self.cfg.z_dimension, device=self.device)
+        z = torch.randn(32, self.cfg.z_dim, device=self.device)
         img = self.g_net(z)
 
         img = (img + 1) / 2.
@@ -134,7 +134,7 @@ if __name__ == '__main__':
     cfg.train_data_args.transform = Compose([ToTensor(), Normalize((0.5,), (0.5,))])
 
     cfg.z_dimension = 100
-    cfg.g_net_args.input_size = cfg.z_dimension
+    cfg.g_net_args.z_dim = cfg.z_dimension
 
     cfg.batch_size = 128
     cfg.epochs = 50

@@ -92,7 +92,10 @@ class Module(nn.Module):
         t, c = Timer(), Counter()
         t.start()
         for step, inputs in enumerate(train_loader):
-            inputs = [x.to(self.device) if isinstance(x, torch.Tensor) else x for x in inputs]
+            if isinstance(inputs, torch.Tensor):
+                inputs = (inputs.to(self.device),)
+            else:
+                inputs = [x.to(self.device) if isinstance(x, torch.Tensor) else x for x in inputs]
             reader_time = t.elapsed_time()
 
             metrics = self.train_step(*inputs)
@@ -143,10 +146,13 @@ class Module(nn.Module):
         self.train(False)
 
         c = Counter()
-        for step, data in enumerate(val_loader):
-            data = [x.to(self.device) if isinstance(x, torch.Tensor) else x for x in data]
+        for step, inputs in enumerate(val_loader):
+            if isinstance(inputs, torch.Tensor):
+                inputs = (inputs.to(self.device),)
+            else:
+                inputs = [x.to(self.device) if isinstance(x, torch.Tensor) else x for x in inputs]
 
-            score, metrics = self.forward(*data)
+            score, metrics = self.forward(*inputs)
 
             for k in metrics:
                 if isinstance(metrics[k], torch.Tensor) and metrics[k].ndim == 0:

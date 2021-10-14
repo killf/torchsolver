@@ -4,49 +4,55 @@ import torchsolver as ts
 
 
 class Discriminator(nn.Module):
-    def __init__(self):
+    def __init__(self, in_c=784, channels=(200,), leaky=0.02, layer_norm=nn.LayerNorm):
         super(Discriminator, self).__init__()
 
-        self.layers = nn.Sequential(
-            nn.Linear(784, 200),
-            nn.LeakyReLU(0.02),
+        layers = []
+        for out_c in channels:
+            layers.append(nn.Linear(in_c, out_c))
+            layers.append(nn.LeakyReLU(leaky))
+            if layer_norm is not None:
+                layers.append(layer_norm(out_c))
+            in_c = out_c
+        self.layers = nn.Sequential(*layers)
 
-            nn.LayerNorm(200),
-
-            nn.Linear(200, 1),
-            nn.Sigmoid()
-        )
+        self.fc = nn.Linear(in_c, 1)
 
     def forward(self, x):
-        return self.layers(x)
+        x = self.layers(x)
+        x = self.fc(x)
+        return torch.sigmoid(x)
 
 
 class Generator(nn.Module):
-    def __init__(self, z_dim=100):
+    def __init__(self, z_dim=100, out_c=784, channels=(200,), leaky=0.02, layer_norm=nn.LayerNorm):
         super(Generator, self).__init__()
 
-        self.layers = nn.Sequential(
-            nn.Linear(z_dim, 200),
-            nn.LeakyReLU(0.02),
+        layers = []
+        for in_c in channels:
+            layers.append(nn.Linear(z_dim, in_c))
+            layers.append(nn.LeakyReLU(leaky))
+            if layer_norm is not None:
+                layers.append(layer_norm(in_c))
+            z_dim = in_c
+        self.layers = nn.Sequential(*layers)
 
-            nn.LayerNorm(200),
-
-            nn.Linear(200, 784),
-            nn.Sigmoid()
-        )
+        self.fc = nn.Linear(z_dim, out_c)
 
     def forward(self, x):
-        return self.layers(x)
+        x = self.layers(x)
+        x = self.fc(x)
+        return torch.tanh(x)
 
 
-class GANModule(ts.GANModule):
-    def __init__(self, z_dim=100, **kwargs):
-        super(GANModule, self).__init__(**kwargs)
+class GANNet(ts.GANModule):
+    def __init__(self, z_dim=100, out_c=784, d_channels=(200,), g_channels=(200,), **kwargs):
+        super(GANNet, self).__init__(**kwargs)
 
         self.z_dim = z_dim
 
-        self.g_net = Generator(z_dim)
-        self.d_net = Discriminator()
+        self.g_net = Generator(z_dim=z_dim, out_c=out_c, channels=g_channels)
+        self.d_net = Discriminator(in_c=out_c, channels=d_channels)
 
         self.loss = nn.BCELoss()
 
@@ -88,22 +94,17 @@ class GANModule(ts.GANModule):
         return g_loss, {"g_loss": float(g_loss), "g_score": float(g_score.mean())}
 
     @torch.no_grad()
-    def val_epoch(self, *args):
-        z = torch.randn(32, self.z_dim, device=self.device)
+    def sample(self, n, img_size=(1, 28, 28)):
+        z = torch.randn(n, self.z_dim, device=self.device)
         img = self.g_net(z)
 
         img = (img + 1) / 2.
         img = torch.clamp(img, 0, 1)
-        img = img.view(img.size(0), 1, 28, 28)
+
+        return img.view(img.size(0), *img_size)
+
+    def val_epoch(self, *args):
+        img = self.sample(32)
 
         self.logger.add_images("val/sample", img, global_step=self.global_step)
         self.logger.flush()
-
-
-if __name__ == '__main__':
-    from torchvision.datasets import MNIST
-    from torchvision.transforms import *
-
-    train_data = MNIST("data", train=True, transform=ToTensor())
-
-    GANModule(batch_size=128).fit(train_data=train_data)
