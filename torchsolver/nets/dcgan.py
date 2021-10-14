@@ -86,18 +86,18 @@ class DCGANNet(ts.GANModule):
         # compute loss of real_img
         real_out = self.d_net(img)
         loss_real = self.loss(real_out, real_label)
-        real_score = real_out
+        real_score = (real_out > 0.5).float()
 
         # compute loss of fake_img
         z = torch.randn(N, self.z_dim, device=self.device)
         fake_img = self.g_net(z)
         fake_out = self.d_net(fake_img)
         loss_fake = self.loss(fake_out, fake_label)
-        fake_score = fake_out
+        fake_score = (fake_out < 0.5).float()
 
         d_loss = loss_real + loss_fake
-        d_score = torch.cat([real_score, fake_score], dim=0)
-        return d_loss, {"d_loss": float(d_loss), "d_score": float(d_score.mean())}
+        d_score = torch.cat([real_score, fake_score], dim=0).mean()
+        return d_loss, {"d_loss": float(d_loss), "d_score": float(d_score)}
 
     def forward_g(self, img, *args):
         N = img.size(0)
@@ -108,9 +108,9 @@ class DCGANNet(ts.GANModule):
         fake_img = self.g_net(z)
         fake_out = self.d_net(fake_img)
         g_loss = self.loss(fake_out, real_label)
-        g_score = fake_out
+        g_score = (fake_out > 0.5).float().mean()
 
-        return g_loss, {"g_loss": float(g_loss), "g_score": float(g_score.mean())}
+        return g_loss, {"g_loss": float(g_loss), "g_score": float(g_score)}
 
     @torch.no_grad()
     def val_epoch(self, *args):
