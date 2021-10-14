@@ -233,6 +233,40 @@ class Module(nn.Module):
         self.logger.flush()
 
 
-class Trainer:
-    def __init__(self):
-        pass
+class GANModule(Module):
+    def forward_d(self, *inputs) -> Tuple[torch.Tensor, Dict]:
+        raise NotImplementedError()
+
+    def forward_g(self, *inputs) -> Tuple[torch.Tensor, Dict]:
+        raise NotImplementedError()
+
+    def train_step(self, *inputs) -> Dict:
+        d_metrics = self.train_step_d(*inputs)
+        g_metrics = self.train_step_g(*inputs)
+
+        d_metrics.update(g_metrics)
+        return d_metrics
+
+    def train_step_d(self, *inputs) -> Dict:
+        d_loss, d_metrics = self.forward_d(*inputs)
+
+        if hasattr(self, "d_optimizer"):
+            self.d_optimizer.zero_grad()
+            d_loss.backward()
+            self.d_optimizer.step()
+
+        return d_metrics
+
+    def train_step_g(self, *inputs) -> Dict:
+        g_loss, g_metrics = self.forward_g(*inputs)
+
+        if hasattr(self, "g_optimizer"):
+            self.g_optimizer.zero_grad()
+            g_loss.backward()
+            self.g_optimizer.step()
+
+        return g_metrics
+
+    @torch.no_grad()
+    def val_epoch(self, *args):
+        raise NotImplementedError()
