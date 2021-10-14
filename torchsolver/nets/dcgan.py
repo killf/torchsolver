@@ -113,12 +113,12 @@ class DCGANNet(ts.GANModule):
         return g_loss, {"g_loss": float(g_loss), "g_score": float(g_score)}
 
     @torch.no_grad()
-    def val_epoch(self, *args):
+    def val_epoch(self, epoch, *args):
         z = torch.randn(32, self.z_dim, device=self.device)
         img = self.g_net(z)
 
         img = (img + 1) / 2.
         img = torch.clamp(img, 0, 1)
 
-        self.logger.add_images("val/sample", img, global_step=self.global_step)
+        self.logger.add_images("val/sample", img, global_step=epoch)
         self.logger.flush()

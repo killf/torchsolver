@@ -70,7 +70,7 @@ class Module(nn.Module):
 
             score, is_best = None, False
             if do_val:
-                score = self.val_epoch(val_loader)
+                score = self.val_epoch(epoch, val_loader)
                 if score is not None:
                     if self.best_direction == "high":
                         if score >= self.best_score:
@@ -139,7 +139,7 @@ class Module(nn.Module):
         if hasattr(self, "optimizer") and update_optimizer:
             self.optimizer.step()
 
-    def val_epoch(self, val_loader) -> Union[float, None]:
+    def val_epoch(self, epoch, val_loader) -> Union[float, None]:
         if val_loader is None:
             return
 
@@ -167,7 +167,7 @@ class Module(nn.Module):
 
         msg = "".join(f"{k}={c.get(k):.4f} " for k in c.data.keys())
         self.log(f"[{datetime.datetime.now():%Y-%m-%d %H:%M:%S}] [VAL] {msg}")
-        self.log_tb({k: c.get(k) for k in c.data}, "val")
+        self.log_tb({k: c.get(k) for k in c.data}, "val", step=epoch)
 
         print()
         return c.score
@@ -232,14 +232,18 @@ class Module(nn.Module):
         if to_file and self.log_file is not None:
             print(msg, end='\n', flush=True, file=open(self.log_file, "a+"))
 
-    def log_tb(self, infos: Dict, mode: str):
+    def log_tb(self, infos: Dict, mode: str, step=None):
+        if step is None:
+            step = self.global_step
+
         for k, v in infos.items():
             if isinstance(v, float):
-                self.logger.add_scalar(f"{mode}/{k}", v, global_step=self.global_step)
+                self.logger.add_scalar(f"{mode}/{k}", v, global_step=step)
             elif isinstance(v, torch.Tensor) and v.dim == 4 and int(v.shape[1]) in [1, 3, 4]:
-                self.logger.add_images(f"{mode}/{k}", v, global_step=self.global_step)
+                self.logger.add_images(f"{mode}/{k}", v, global_step=step)
             elif isinstance(v, torch.Tensor) and v.dim == 3 and int(v.shape[0]) in [1, 3, 4]:
-                self.logger.add_image(f"{mode}/{k}", v, global_step=self.global_step)
+                self.logger.add_image(f"{mode}/{k}", v, global_step=step)
+
         self.logger.flush()
 
 

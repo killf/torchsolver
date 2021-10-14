@@ -103,8 +103,8 @@ class GANNet(ts.GANModule):
 
         return img.view(img.size(0), *img_size)
 
-    def val_epoch(self, *args):
+    def val_epoch(self, epoch, *args):
         img = self.sample(32)
 
-        self.logger.add_images("val/sample", img, global_step=self.global_step)
+        self.logger.add_images("val/sample", img, global_step=epoch)
         self.logger.flush()
