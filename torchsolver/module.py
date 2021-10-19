@@ -239,9 +239,9 @@ class Module(nn.Module):
         for k, v in infos.items():
             if isinstance(v, float):
                 self.logger.add_scalar(f"{mode}/{k}", v, global_step=step)
-            elif isinstance(v, torch.Tensor) and v.dim == 4 and int(v.shape[1]) in [1, 3, 4]:
+            elif isinstance(v, torch.Tensor) and v.dim() == 4 and int(v.shape[1]) in [1, 3, 4]:
                 self.logger.add_images(f"{mode}/{k}", v, global_step=step)
-            elif isinstance(v, torch.Tensor) and v.dim == 3 and int(v.shape[0]) in [1, 3, 4]:
+            elif isinstance(v, torch.Tensor) and v.dim() == 3 and int(v.shape[0]) in [1, 3, 4]:
                 self.logger.add_image(f"{mode}/{k}", v, global_step=step)
 
         self.logger.flush()
